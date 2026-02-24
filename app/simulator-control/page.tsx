@@ -43,10 +43,10 @@ export default function SimulatorControl() {
   })
 
   const [iotServerSettings, setIotServerSettings] = useState({
-    iot_connection_string: "HostName=s1toptest01.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=XVYaB+sHrscvTc7JDI6px5o5DAMp635GYAIoTH0hdwg=",
-    iot_primary_key_device: "pb4CJgdsz1mGnnvSy7LOt6qLx+0xU6jQCYjkThvWjlY=",
-    iot_secondary_key_device: "cxiJ+dGOnvB7PNtz8bkGnWnTM6BBQI2J62DC3CV/wvw=",
-    iot_eventhub_connection_string: "Endpoint=sb://ihsuprodseres019dednamespace.servicebus.windows.net/;SharedAccessKeyName=iothubowner;SharedAccessKey=XVYaB+sHrscvTc7JDI6px5o5DAMp635GYAIoTH0hdwg=;EntityPath=iothub-ehub-s1toptest0-56253173-ddac85782f"
+    iot_connection_string: "",
+    iot_primary_key_device: "",
+    iot_secondary_key_device: "",
+    iot_eventhub_connection_string: ""
   })
 
   const [saved, setSaved] = useState(false)
