@@ -1,0 +1,128 @@
+// Prisma schema
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  // Include linux-musl so Prisma generates a query engine binary compatible
+  // with Alpine/musl-based images (node:*-alpine). This allows the runtime
+  // inside the container to find the correct binary.
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String              @id @default(auto()) @map("_id") @db.ObjectId
+  username           String              @unique
+  email              String              @unique
+  password           String
+  role               String              @default("user")
+  emailVerified      Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sessions           Session[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  token        String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model Device {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  type        String
+  status      String?  @default("offline")
+  uuid        String   @unique
+  deviceId    String?
+  connectionStatus String? @default("disconnected")
+  metadata    Json?
+  lastSeen    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deviceCommands DeviceCommand[]
+  
+  @@index([deviceId])
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  action    String
+  userId    String?  @db.ObjectId
+  userEmail String?
+  ipAddress String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model DeviceCommand {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId   String?  @db.ObjectId
+  uuid       String?
+  command    String
+  payload    Json?
+  status     String   @default("pending")
+  broadcast  Boolean  @default(false)
+  response   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  device     Device?  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  @@index([deviceId])
+  @@index([uuid])
+}
+
+model DeviceId {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId  String   
+  deviceUuid String?  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique(deviceId)
+  @@map("deviceids")
+}
+
+model Telemetry {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId  String
+  type      String?
+  modelId   String?
+  status    String?
+  temp      Float?
+  humidity  Float?
+  ts        String?
+  partitionId String
+  sequenceNumber BigInt
+  createdAt DateTime @default(now())
+  
+  @@index([deviceId])
+  @@index([createdAt])
+  @@unique([partitionId,sequenceNumber])
+  @@map("telemetries")
+}
