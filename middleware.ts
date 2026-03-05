@@ -4,6 +4,18 @@ import { csrfProtection, shouldBypassCSRF } from './lib/csrf';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Handle stale Server Action posts from old client bundles after restarts/deploys.
+  // This app does not rely on Server Actions; redirect to a fresh GET so the client reloads.
+  if (
+    request.method === 'POST' &&
+    request.headers.has('next-action') &&
+    !pathname.startsWith('/api/')
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.search = '';
+    return NextResponse.redirect(redirectUrl, 303);
+  }
   
   // Skip all middleware for WebSocket connections (/ws/ endpoints)
   if (pathname.startsWith('/ws/')) {

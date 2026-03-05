@@ -205,14 +205,20 @@ app.prepare().then(() => {
       
       if (!uuid) {
         socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+        logError(new Error('WebSocket connection attempted without UUID'), { context: 'WebSocket upgrade', url });
         socket.destroy();
         return;
       }
+
+      logInfo('Device WebSocket upgrade request received', { uuid });
 
       wss.handleUpgrade(request, socket, head, (ws) => {
         // Add connection to manager (no authentication required for device WebSocket)
         connectionManager.addConnection(uuid, ws);
         logInfo('Device WebSocket connected', { uuid });
+
+        // Track whether this connection successfully received a device ID assignment
+        let assignedDeviceId: string | null = null;
 
         // Helper function to build IoT Hub connection string
         function buildIotHubConnectionString(connectionString: string | undefined, deviceId: string, primaryKey: string | undefined): string {
@@ -226,10 +232,16 @@ app.prepare().then(() => {
           }
         }
 
-        // Helper function to assign device ID to UUID
-        async function assignDeviceId(deviceUuid: string): Promise<string> {
-          try {
-            // Query for an available device_id where device_uuid is null
+        // Helper function to assign device ID to UUID using atomic conditional update with retry.
+        // Using findFirst + conditional updateMany (where deviceUuid is still null) is safe because
+        // MongoDB executes each updateMany atomically at the document level.  If a concurrent
+        // connection claimed the same record first, updateMany returns count=0 and we retry with
+        // the next available record, eliminating the race condition that existed with the previous
+        // per-connection in-memory lock.
+        async function assignDeviceId(deviceUuid: string, maxAttempts = 10, retryDelayMs = 100): Promise<string> {
+          logInfo('Starting device ID assignment', { uuid: deviceUuid });
+          for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            // Find first available device
             const availableDevice = await prisma.deviceId.findFirst({
               where: { deviceUuid: null },
               orderBy: { deviceId: 'asc' },
@@ -239,18 +251,24 @@ app.prepare().then(() => {
               throw new Error('No available device IDs to assign');
             }
 
-            // Update the device with the UUID
-            await prisma.deviceId.update({
-              where: { id: availableDevice.id },
+            // Atomically claim the record only when it is still unclaimed 
+            const claimed = await prisma.deviceId.updateMany({
+              where: { id: availableDevice.id, deviceUuid: null },
               data: { deviceUuid: deviceUuid },
             });
 
-            logInfo('Assigned device ID to UUID', { deviceId: availableDevice.deviceId, uuid: deviceUuid });
-            return availableDevice.deviceId;
-          } catch (error) {
-            logError(error as Error, { context: 'Failed to assign device ID', uuid: deviceUuid });
-            throw error;
+            if (claimed.count > 0) {
+              logInfo('Assigned device ID to UUID', { deviceId: availableDevice.deviceId, uuid: deviceUuid, attempt });
+              return availableDevice.deviceId;
+            }
+
+            // Another connection claimed this record; wait with exponential backoff then retry
+            logInfo('Device ID assignment contention, retrying', { uuid: deviceUuid, attempt });
+            const backoff = Math.min(retryDelayMs * Math.pow(2, attempt - 1), 1000) + Math.floor(Math.random() * retryDelayMs);
+            await new Promise((resolve) => setTimeout(resolve, backoff));
           }
+
+          throw new Error('Failed to assign device ID after max retries due to contention');
         }
 
         // Handle incoming messages
@@ -269,8 +287,10 @@ app.prepare().then(() => {
             // Handle different message types based on Python server logic
             if (message.type === 'request') {
               // Client is requesting device ID assignment
+              logInfo('Device ID assignment request received', { uuid, messageId: message.id || uuid });
               try {
-                const assignedDeviceId = await assignDeviceId(message.id || uuid);
+                const result = await assignDeviceId(message.id || uuid);
+                assignedDeviceId = result;
                 
                 // Generate IoT Hub connection string (if environment variables are set)
                 const iotHubConnectionString = buildIotHubConnectionString(
@@ -294,10 +314,10 @@ app.prepare().then(() => {
                   },
                   status: 'success',
                 });
-
                 ws.send(envelope.toJSON());
                 logInfo('Device config sent', {
                   uuid,
+                  assignedDeviceId,
                   type: envelope.type,
                   id: envelope.id,
                   correlationId: envelope.correlationId,
@@ -359,7 +379,10 @@ app.prepare().then(() => {
 
         // Handle connection close
         ws.on('close', async () => {
-          logInfo('Device WebSocket closed', { uuid });
+          if (!assignedDeviceId) {
+            logError(new Error('Device disconnected before device ID assignment completed'), { uuid });
+          }
+          logInfo('Device WebSocket closed', { uuid, assignedDeviceId: assignedDeviceId ?? 'none' });
           
           // Update device connection status
           await prisma.device.updateMany({

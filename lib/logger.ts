@@ -49,6 +49,7 @@ const allLogsTransport = new DailyRotateFile({
   zippedArchive: true,
   maxSize: '20m',
   maxFiles: '14d', // Keep logs for 14 days
+  level: 'info',
   format: fileFormat,
 });
 

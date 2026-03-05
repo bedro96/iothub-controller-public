@@ -1,10 +1,9 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ModeToggle } from "@/components/mode-toggle"
+import { AdminNav } from "@/components/admin-nav"
+import { Button } from "@/components/ui/button"
 import { Activity, Signal, Thermometer, Gauge, TrendingUp, AlertTriangle, Droplets } from "lucide-react"
 import dynamic from 'next/dynamic'
 
@@ -52,10 +51,13 @@ export default function IoTDashboardPage() {
   const [devices, setDevices] = useState<DeviceMetric[]>([])
   const [telemetry, setTelemetry] = useState<TelemetryRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const PAGE_SIZE = 10
 
   const fetchTelemetry = useCallback(async () => {
     try {
-      const res = await fetch('/api/telemetry?limit=200')
+      const res = await fetch('/api/telemetry?limit=500')
       if (!res.ok) return
       const data: { telemetry: TelemetryRecord[] } = await res.json()
       setTelemetry(data.telemetry)
@@ -90,6 +92,20 @@ export default function IoTDashboardPage() {
   const avgTemperature = activeDevices.reduce((acc, d) => acc + d.temperature, 0) / Math.max(activeDevices.length, 1)
   const avgHumidity = activeDevices.reduce((acc, d) => acc + d.humidity, 0) / Math.max(activeDevices.length, 1)
 
+  const sortedDevices = useMemo(
+    () => [...devices].sort((a, b) => a.name.localeCompare(b.name)),
+    [devices]
+  )
+
+  const totalPages = Math.max(1, Math.ceil(sortedDevices.length / PAGE_SIZE))
+  const pageStart = sortedDevices.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, sortedDevices.length)
+  const paginatedDevices = sortedDevices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages))
+  }, [totalPages])
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "online":
@@ -116,25 +132,7 @@ export default function IoTDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold">IoT Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" asChild>
-                <Link href="/admin">Admin Main</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/iot-settings">Settings</Link>
-              </Button>
-              <ModeToggle />
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AdminNav title="IoT Dashboard" onRefresh={fetchTelemetry} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -274,8 +272,8 @@ export default function IoTDashboardPage() {
         </div>
 
         {/* Device Grid */}
-        <div className="mb-8">
-          <DeviceGrid totalDevices={1000} />
+        <div className="mb-8 relative">
+          <DeviceGrid externalDevices={sortedDevices} />
         </div>
 
         {/* Device List */}
@@ -285,11 +283,39 @@ export default function IoTDashboardPage() {
             <CardDescription>Latest telemetry per device from IoT Hub D2C messages</CardDescription>
           </CardHeader>
           <CardContent>
-            {devices.length === 0 ? (
+            {sortedDevices.length === 0 ? (
               <p className="text-sm text-muted-foreground">No telemetry received yet.</p>
             ) : (
               <div className="space-y-4">
-                {devices.map((device) => (
+                {sortedDevices.length > PAGE_SIZE && (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {pageStart}-{pageEnd} of {sortedDevices.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {paginatedDevices.map((device) => (
                   <div
                     key={device.id}
                     className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"

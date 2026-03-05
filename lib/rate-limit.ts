@@ -92,7 +92,7 @@ export const rateLimiters = {
   }),
   api: createRateLimiter({
     windowMs: 1 * 60 * 1000, // 1 minute
-    maxRequests: 120, // 120 requests per minute
+    maxRequests: 1000, // 1000 requests per minute
   }),
   passwordReset: createRateLimiter({
     windowMs: 60 * 60 * 1000, // 1 hour

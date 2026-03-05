@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { ModeToggle } from "@/components/mode-toggle"
+import { AdminNav } from "@/components/admin-nav"
 import { Settings, Logs, Wifi, Database, Save, RefreshCw } from "lucide-react"
 import useCsrf from "@/components/hooks/useCsrf"
 import {
@@ -25,72 +24,28 @@ export default function IoTSettingsPage() {
     herd_ready: "false",
   })
 
-  const [deviceMapping, setDeviceMapping] = useState({
-  issued_out_number_of_devices: "0",
-  next_device_id: "simdevice0001",
-  })
-
   const [iotServerSettings, setIotServerSettings] = useState({
-    iot_connection_string: "",
-    iot_primary_key_device: "",
-    iot_secondary_key_device: "",
-    iot_eventhub_connection_string: ""
+    iot_connection_string: "HostName=iotclient-simulator01.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=c6fPn9bY50lduwZe9DS3flyc3gE4TX3skAIoTInyQPs=",
+    iot_primary_key_device: "c6fPn9bY50lduwZe9DS3flyc3gE4TX3skAIoTInyQPs=",
+    iot_secondary_key_device: "ymKgBzJaNL2ELPoRgHrfuJOFIMXOH/tZrAIoTBQ+ILk=",
+    iot_eventhub_connection_string: "Endpoint=sb://iothub-ns-iotclient-56775413-43beabeff5.servicebus.windows.net/;SharedAccessKeyName=iothubowner;SharedAccessKey=c6fPn9bY50lduwZe9DS3flyc3gE4TX3skAIoTInyQPs=;EntityPath=iotclient-simulator01"
   })
 
-  const [devicesToGenerate, setDevicesToGenerate] = useState(1000)
+
 
   const [saved, setSaved] = useState(false)
-  const [generating, setGenerating] = useState(false)
-  const handleClearMappings = async () => {
-    if (!confirm("Are you sure you want to reset the device mapping table? This will cause all devices to be reassigned starting from simdevice0001.")) return
-    try {
-      await ensureCsrf()
-      const resp = await fetchWithCsrf("/api/devices/clear-mappings", {
-        method: 'POST',
+
+  const [dbInfo, setDbInfo] = useState({ host: "Loading...", dbName: "Loading..." })
+
+  useEffect(() => {
+    fetch("/api/database/info")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch database info")
+        return res.json()
       })
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Failed' }))
-        alert(err.error || 'Failed to clear mappings')
-        return
-      }
-      alert('Device mapping table reset successfully. Device IDs will be reassigned starting from simdevice0001.')
-      // Reset device mapping state
-      setDeviceMapping({
-        issued_out_number_of_devices: "0",
-        next_device_id: "simdevice0001",
-      })
-    } catch (e) {
-      console.error(e)
-      alert('Error resetting device mappings')
-    }
-  }
-  const handleGenerateDevices = async (count = 1000) => {
-    if (!confirm(`Generate ${count} simulated devices? This may take a while.`)) return
-    try {
-      setGenerating(true)
-      await ensureCsrf()
-      const resp = await fetchWithCsrf(`/api/devices/generate/${count}`, {
-        method: 'POST',
-      })
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Failed' }))
-        alert(err.error || 'Failed to generate devices')
-        return
-      }
-      const data = await resp.json().catch(() => ({}))
-      alert(`Generated ${data.generated || count} devices`)
-      // update issued_out_number_of_devices if present
-      setDeviceMapping(prev => ({
-        ...prev,
-        issued_out_number_of_devices: String(Number(prev.issued_out_number_of_devices || '0') + count),
-      }))
-    } catch (e) {
-      console.error(e)
-      alert('Error generating devices')
-    } finally {
-      setGenerating(false)
-    }
-  }
+      .then((data) => setDbInfo({ host: data.host ?? "Unknown", dbName: data.dbName ?? "Unknown" }))
+      .catch(() => setDbInfo({ host: "Unknown", dbName: "Unknown" }))
+  }, [])
 
   const handleSaveSettings = async () => {
     await ensureCsrf()
@@ -150,59 +105,10 @@ export default function IoTSettingsPage() {
     }
   }
 
-  useEffect(() => {
-    const response = async () => {
-      await ensureCsrf()
-      const statsResponse = await fetchWithCsrf("/api/connectionmanager/devicemapping/issued", {
-        method: "GET",
-      }).then((resp) => resp?.ok ? resp.json() : null)
-      .catch((err: Error) => {
-        console.error("Failed to fetch issued out device count:", err)
-
-      })
-      
-      if (statsResponse && statsResponse.deviceCount !== undefined) {
-        setDeviceMapping(prev => ({ ...prev, issued_out_number_of_devices: String(statsResponse.deviceCount) }))
-      }
-    }
-    const nextIdResponse = async () => {
-      await ensureCsrf()
-      const statsResponse = await fetchWithCsrf("/api/connectionmanager/devicemapping/nextid", {
-        method: "GET",
-      }).then((resp) => resp?.ok ? resp.json() : null)
-      .catch((err: Error) => {
-        console.error("Failed to fetch next device ID:", err)
-      })
-
-      if (statsResponse && statsResponse.deviceId !== undefined) {
-        setDeviceMapping(prev => ({ ...prev, next_device_id: String(statsResponse.deviceId) }))
-      }
-    }
-    response()
-    nextIdResponse()
-  }, [])
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold">IoT Settings</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="outline" asChild>
-                <Link href="/admin">Admin Main</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/iot-dashboard">Dashboard</Link>
-              </Button>
-              <ModeToggle />
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AdminNav title="IoT Settings" />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -275,7 +181,7 @@ export default function IoTSettingsPage() {
                   <Label htmlFor="herd_ready">Herd Ready</Label>
                   <div className="flex items-center space-x-2">
                     <Switch id="herd_ready_switch" checked={deviceSettings.herd_ready === "true"} onCheckedChange={(checked) => setDeviceSettings({ ...deviceSettings, herd_ready: checked.toString() })} />
-                    <Label htmlFor="herd_ready_switch_label">ACI deployed</Label>
+                    <Label htmlFor="herd_ready_switch_label">Azure Batch/ACI/AKS deployed</Label>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Set to "true" to enable herd mode for device simulator
@@ -285,99 +191,6 @@ export default function IoTSettingsPage() {
               
             </CardContent>
           </Card>
-
-          {/* DeviceMapping Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Logs className="h-5 w-5" />
-                Device Mapping table Settings
-              </CardTitle>
-              <CardDescription>
-                Configure device mapping table settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="issued_out_number_of_devices">Issued Out Number of Devices</Label>
-                  <Input
-                    id="issued_out_number_of_devices"
-                    type="text"
-                    value={deviceMapping.issued_out_number_of_devices}
-                    onChange={(e) => setDeviceMapping({ ...deviceMapping, issued_out_number_of_devices: e.target.value })}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="next_device_id">Next Device ID</Label>
-                  <Input
-                    id="next_device_id"
-                    type="text"
-                    value={deviceMapping.next_device_id}
-                    onChange={(e) => setDeviceMapping({ ...deviceMapping, next_device_id: e.target.value })}
-                    className="mt-2"                      
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="reset_mapping_table">Reset Mapping Table</Label>
-                  <div className="flex flex-row items-center justify-content gap-3">
-                    <Label htmlFor="num_of_device" className="w-36">
-                      Devices #
-                    </Label>
-                    <Input 
-                      id="number_of_devices_to_generate"
-                      type="number"
-                      defaultValue={1000}
-                      style={{ width: "100px" }}
-                      onChange={(e) => setDevicesToGenerate(Number(e.target.value))}
-                      />
-                    <HoverCard openDelay={10} closeDelay={100}>
-                      <HoverCardTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => handleGenerateDevices(devicesToGenerate)}
-                          disabled={generating}>
-                          
-                          1. Fill-out Table. 
-                          {generating ? 'Generating...' : ' Click to generate'}
-                        </Button>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="flex w-64 flex-col gap-0.5">
-                        <div className="font-semibold">Mapping table fillout</div>
-                        <div>This will fill out the device mapping table with default values.</div>
-                        <div>Need to be done before starting device simulator </div>
-                        <div className="text-muted-foreground mt-1 text-xs">
-                          This only needs to be done once.
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                  </div>
-                  <HoverCard openDelay={10} closeDelay={100}>
-                    <HoverCardTrigger asChild>
-                      <Button variant="outline" onClick={(e) => handleClearMappings()}>
-                        2. Reset Mapping table for new simulation project
-                      </Button>
-                    </HoverCardTrigger>
-                      <HoverCardContent className="flex w-64 flex-col gap-0.5">
-                        <div className="font-semibold">Mapping table reset</div>
-                        <div>This will reset device mapping table. Device ID will be given out starting from 0001</div>
-                        <div className="text-muted-foreground mt-1 text-xs">
-                          Click with caution.
-                        </div>
-                      </HoverCardContent>
-                  </HoverCard>
-
-                </div>
-                {/* <div>
-                  <Label htmlFor="herd_ready">Herd Ready</Label>
-                  
-                  
-                </div> */}
-              </div>
-              
-            </CardContent>
-          </Card>          
 
           {/* Connection String Settings */}
           <Card>
@@ -448,25 +261,34 @@ export default function IoTSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5" />
-                Database Settings
+                Database Settings (Read-Only)
               </CardTitle>
               <CardDescription>
                 Configure database connection and storage settings
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="databaseUrl">Database URL</Label>
-                <Input
-                  id="databaseUrl"
-                  type="password"
-                  defaultValue="mongodb://localhost:27017/iothub"
-                  readOnly
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Database URL is configured via environment variables
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="dbHost">Host Name</Label>
+                  <Input
+                    id="dbHost"
+                    value={dbInfo.host}
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dbName">Database Name</Label>
+                  <Input
+                    id="dbName"
+                    value={dbInfo.dbName}
+                    readOnly
+                  />
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Database connection is configured via environment variables
+              </p>
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <h4 className="font-medium">Database Status</h4>
@@ -474,7 +296,12 @@ export default function IoTSettingsPage() {
                     Connected to MongoDB
                   </p>
                 </div>
-                <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                { dbInfo.host && dbInfo.dbName && (
+                  <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                ) }
+                { !(dbInfo.host && dbInfo.dbName) && (
+                  <div className="h-3 w-3 bg-red-500 rounded-full"></div>
+                ) }
               </div>
             </CardContent>
           </Card>

@@ -21,8 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ModeToggle } from "@/components/mode-toggle"
-import { Trash2, LogOut, ArrowLeft } from "lucide-react"
+import { Trash2 } from "lucide-react"
 
 type User = {
   id: string
@@ -196,11 +195,6 @@ export default function UserManagementPage() {
     }
   }
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
-    router.push("/")
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -210,23 +204,10 @@ export default function UserManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={() => router.push("/admin")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Admin Home
-            </Button>
-            <h1 className="text-3xl font-bold">User Management</h1>
-          </div>
-          <div className="flex gap-4">
-            <ModeToggle />
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">User Management</h1>
         </div>
 
         {error && (

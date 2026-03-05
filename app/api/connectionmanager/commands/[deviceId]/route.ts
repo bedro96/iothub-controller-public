@@ -5,10 +5,10 @@ import { MessageEnvelope } from '@/lib/message-envelope';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ uuid: string }> }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
-    const { uuid } = await params;
+    const { deviceId } = await params;
 
     // Parse request body
     const body = await request.json();
@@ -22,9 +22,9 @@ export async function POST(
     }
 
     // Find device by UUID
-    const device = await prisma.device.findFirst({
+    const device = await prisma.deviceId.findFirst({
       where: ({
-        uuid,
+        deviceId: deviceId,
       } as any),
     });
 
@@ -36,7 +36,7 @@ export async function POST(
     }
 
     // Check if device is connected
-    if (!connectionManager.isConnected(uuid)) {
+    if (!device.deviceUuid || !connectionManager.isConnected(device.deviceUuid)) {
       return NextResponse.json(
         { error: 'Device is not connected' },
         { status: 400 }
@@ -48,7 +48,7 @@ export async function POST(
       data: {
         command: action,
         payload: payload || {},
-        uuid,
+        uuid : device.deviceUuid,
         deviceId: device.id,
         status: 'sent',
         broadcast: false,
@@ -68,7 +68,7 @@ export async function POST(
       },
     });
 
-    const sent = connectionManager.sendToDevice(uuid, envelope.toDict());
+    const sent = connectionManager.sendToDevice(device.deviceUuid, envelope.toDict());
 
     if (!sent) {
       // Update command status to failed
@@ -86,7 +86,7 @@ export async function POST(
     return NextResponse.json({
       message: 'Command sent successfully',
       commandId: deviceCommand.id,
-      uuid,
+      uuid: device.deviceUuid,
       deviceId: device.id,
     }, { status: 200 });
 

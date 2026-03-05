@@ -19,3 +19,22 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+// This POST endpoint is for closing all active connections in the connection manager. 
+export async function POST(request: NextRequest) {
+  
+  try {
+    const active_connections = connectionManager.getActiveConnectionCount();
+    connectionManager.closeAll();
+    
+    return NextResponse.json({
+      active: active_connections,
+    }, { status: 200 });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to get clients',
+      },
+      { status: 500 }
+    );
+  }
+}

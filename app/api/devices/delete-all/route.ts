@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     // Get user email from header for authorization
     await requireAdmin();
     // Get all DeviceId entries
-    const deviceIdEntries = await (prisma as any).deviceId.findMany();
+    const deviceIdEntries = await prisma.deviceId.findMany();
     const deviceIds = deviceIdEntries.map((entry: any) => entry.deviceId);
 
     // Close all WebSocket connections

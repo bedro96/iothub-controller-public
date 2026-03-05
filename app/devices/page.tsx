@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ModeToggle } from "@/components/mode-toggle"
+import { AdminNav } from "@/components/admin-nav"
 import useCsrf from "@/components/hooks/useCsrf"
-import { LogOut, Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 
 type Device = {
   id: string
@@ -86,11 +86,6 @@ export default function DevicesPage() {
     }
   }
 
-  const handleLogout = async () => {
-    await fetchWithCsrf("/api/auth/logout", { method: "POST" })
-    router.push("/login")
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -100,17 +95,11 @@ export default function DevicesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-background">
+      <AdminNav title="My Devices" />
+      <div className="max-w-6xl mx-auto p-8">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold">My Devices</h1>
-          <div className="flex gap-4">
-            <ModeToggle />
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          </div>
         </div>
 
         <div className="mb-4">

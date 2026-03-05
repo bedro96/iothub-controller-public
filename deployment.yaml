@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iotclient
+  namespace: iotsimulator
+  labels:
+    app: iotclient
+spec:
+  replicas: 200
+  selector:
+    matchLabels:
+      app: iotclient
+  template:
+    metadata:
+      labels:
+        app: iotclient
+    spec:
+      # ✅ 특정 agentpool로 고정 (아래 key/value는 실제 노드 라벨에 맞게 수정)
+      nodeSelector:
+        agentpool: iotclient
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: iotclient
+          image: iotacr.azurecr.io/iotclient-java-simulator:latest
+          imagePullPolicy: IfNotPresent
+
+          # inbound가 없으므로 ports/service 불필요
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "50Mi"
+            limits:
+              cpu: "75m"
+              memory: "130Mi"
+
+          

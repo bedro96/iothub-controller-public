@@ -44,7 +44,6 @@ export async function POST( request: NextRequest) {
     try {
         const session = await requireAdmin();
         if (!session) { return NextResponse.json({ error: "Not authenticated" }, { status: 401 })}
-
         const records = await prisma.telemetry.deleteMany({});
         console.log(`Deleted ${records.count} telemetry records.`);
         logInfo(`Deleted ${records.count} telemetry records.`);
@@ -52,7 +51,9 @@ export async function POST( request: NextRequest) {
     } catch (error) {
         console.error('Error deleting telemetry:', error);
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to delete telemetry' },
+            { error: error instanceof Error ? error.message : 'Failed to delete telemetry',
+                deleted: 0,
+            },
             { status: 500 }
         );
     }

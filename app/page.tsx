@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,14 @@ type User = {
   role: string
 }
 
+type TelemetryRecord = {
+  id: string
+  temp: number | null
+  humidity: number | null
+  ts: string | null
+  createdAt: string
+}
+
 function getUserFromSession(): Promise<User | null> {
   return fetch('/api/auth/me', { credentials: 'include' })
     .then(res => res.ok ? res.json().then(data => data.user) : null)
@@ -23,10 +31,29 @@ function getUserFromSession(): Promise<User | null> {
 export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [telemetry, setTelemetry] = useState<TelemetryRecord[]>([])
 
   useEffect(() => {
     getUserFromSession().then(setUser)
   }, [])
+
+  const fetchTelemetry = useCallback(async () => {
+    try {
+      const res = await fetch("/api/telemetry?limit=200")
+      if (!res.ok) return
+      const data: { telemetry: TelemetryRecord[] } = await res.json()
+      setTelemetry(data.telemetry)
+    } catch (error) {
+      console.error("Failed to fetch telemetry:", error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    fetchTelemetry()
+    const interval = setInterval(fetchTelemetry, 10000)
+    return () => clearInterval(interval)
+  }, [user, fetchTelemetry])
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
@@ -48,16 +75,10 @@ export default function Home() {
                   <span className="text-sm text-muted-foreground">
                     Welcome, {user.email}
                   </span>
-                  <Button variant="outline" asChild>
-                    <Link href="/devices">My Devices</Link>
-                  </Button>
                   {user.role === "admin" && (
                     <>
                       <Button variant="outline" asChild>
                         <Link href="/admin">Admin Panel</Link>
-                      </Button>
-                      <Button variant="outline" asChild>
-                        <Link href="/monitoring">Monitoring</Link>
                       </Button>
                     </>
                   )}
@@ -97,7 +118,7 @@ export default function Home() {
           )}
           {user && (
             <div className="mt-8">
-              <ChartAreaInteractive />
+              <ChartAreaInteractive telemetry={telemetry} />
             </div>
           )}
         </div>
