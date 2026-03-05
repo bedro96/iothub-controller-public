@@ -25,10 +25,10 @@ export default function IoTSettingsPage() {
   })
 
   const [iotServerSettings, setIotServerSettings] = useState({
-    iot_connection_string: "HostName=iotclient-simulator01.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=c6fPn9bY50lduwZe9DS3flyc3gE4TX3skAIoTInyQPs=",
-    iot_primary_key_device: "c6fPn9bY50lduwZe9DS3flyc3gE4TX3skAIoTInyQPs=",
-    iot_secondary_key_device: "ymKgBzJaNL2ELPoRgHrfuJOFIMXOH/tZrAIoTBQ+ILk=",
-    iot_eventhub_connection_string: "Endpoint=sb://iothub-ns-iotclient-56775413-43beabeff5.servicebus.windows.net/;SharedAccessKeyName=iothubowner;SharedAccessKey=c6fPn9bY50lduwZe9DS3flyc3gE4TX3skAIoTInyQPs=;EntityPath=iotclient-simulator01"
+    iot_connection_string: "HostName=",
+    iot_primary_key_device: "",
+    iot_secondary_key_device: "",
+    iot_eventhub_connection_string: "Endpoint=sb://iothub-"
   })
 
 
