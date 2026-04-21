@@ -43,7 +43,7 @@ These documents are written specifically for *this* repository — the patterns,
 
 * **Reading:** Each `SKILL.md` is self-contained. Start with the *Overview* section, then jump to the section relevant to your task.
 * **Updating:** When you change something architectural (add a major dependency, change a config, introduce a new convention), update the relevant skill(s) in the same PR.
-* **Adding a new skill:** Create `skills/<topic>/SKILL.md`, follow the structure of the existing skills (Overview → Where it lives → Conventions → How-to → Pitfalls → References), and add a row to the index above.
+* **Adding a new skill:** Create `.github/skills/<topic>/SKILL.md`, follow the structure of the existing skills (Overview → Where it lives → Conventions → How-to → Pitfalls → References), and add a row to the index above.
 
 ## Conventions that apply across all skills
 
